@@ -6,6 +6,9 @@
   "description": "Scrapes Yahoo! Auctions Japan search results for product details.",
   "input": "./INPUT_SCHEMA.json",
   "outputSchema": {
+    "actorOutputSchemaVersion": 1,
+    "title": "Yahoo Auctions Japan",
+    "description": "Auction listings from auctions.yahoo.co.jp",
     "type": "object",
     "required": ["itemId", "title", "currentPrice", "detailUrl", "source", "scrapedAt"],
     "properties": {
