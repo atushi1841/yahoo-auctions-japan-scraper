@@ -14,9 +14,9 @@
     "properties": {
       "itemId": { "type": "string", "description": "Yahoo! Auction product ID", "template": "{{itemId}}" },
       "title": { "type": "string", "description": "Product title", "template": "{{title}}" },
-      "currentPrice": { "type": "integer", "description": "Current price in JPY", "template": "{{currentPrice}}" },
-      "buyNowPrice": { "type": "integer", "description": "Buy Now price in JPY or null", "template": "{{buyNowPrice}}" },
-      "bidCount": { "type": "integer", "description": "Number of bids", "template": "{{bidCount}}" },
+      "currentPrice": { "type": "string", "description": "Current price in JPY", "template": "{{currentPrice}}" },
+      "buyNowPrice": { "type": "string", "description": "Buy Now price in JPY or null", "template": "{{buyNowPrice}}" },
+      "bidCount": { "type": "string", "description": "Number of bids", "template": "{{bidCount}}" },
       "timeLeft": { "type": "string", "description": "Remaining auction time", "template": "{{timeLeft}}" },
       "postage": { "type": "string", "description": "Shipping/postage details", "template": "{{postage}}" },
       "imageUrl": { "type": "string", "description": "Main product image URL", "template": "{{imageUrl}}" },
