@@ -22,7 +22,7 @@
       "imageUrl": { "type": ["string", "null"], "description": "Main product image URL", "template": "{{imageUrl}}" },
       "detailUrl": { "type": "string", "description": "Full URL to the product detail page", "template": "{{detailUrl}}" },
       "source": { "type": "string", "description": "Source identifier", "template": "{{source}}" },
-      "scrapedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the item was scraped", "template": "{{scrapedAt}}" }
+      "scrapedAt": { "type": "string", "description": "Timestamp when the item was scraped", "template": "{{scrapedAt}}" }
     }
   }
 }
