@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "properties": {
+    "searchKeyword": {
+      "type": "string",
+      "title": "Search keyword",
+      "description": "Keyword to search on Yahoo! Auctions Japan",
+      "editor": "textfield",
+      "prefill": ""
+    },
+    "maxItems": {
+      "type": "integer",
+      "title": "Max items",
+      "description": "Maximum number of items to collect",
+      "default": 100,
+      "minimum": 1
+    },
+    "maxPages": {
+      "type": "integer",
+      "title": "Max pages",
+      "description": "Maximum number of result pages to fetch",
+      "default": 5,
+      "minimum": 1
+    },
+    "proxyConfiguration": {
+      "type": "object",
+      "title": "Proxy configuration",
+      "description": "Optional Apify proxy configuration",
+      "editor": "proxy"
+    }
+  },
+  "required": ["searchKeyword"]
+}
