@@ -15,11 +15,11 @@
       "itemId": { "type": "string", "description": "Yahoo! Auction product ID", "template": "{{itemId}}" },
       "title": { "type": "string", "description": "Product title", "template": "{{title}}" },
       "currentPrice": { "type": "integer", "description": "Current price in JPY", "template": "{{currentPrice}}" },
-      "buyNowPrice": { "type": ["integer", "null"], "description": "Buy Now price in JPY or null", "template": "{{buyNowPrice}}" },
+      "buyNowPrice": { "type": "integer", "description": "Buy Now price in JPY or null", "template": "{{buyNowPrice}}" },
       "bidCount": { "type": "integer", "description": "Number of bids", "template": "{{bidCount}}" },
       "timeLeft": { "type": "string", "description": "Remaining auction time", "template": "{{timeLeft}}" },
       "postage": { "type": "string", "description": "Shipping/postage details", "template": "{{postage}}" },
-      "imageUrl": { "type": ["string", "null"], "description": "Main product image URL", "template": "{{imageUrl}}" },
+      "imageUrl": { "type": "string", "description": "Main product image URL", "template": "{{imageUrl}}" },
       "detailUrl": { "type": "string", "description": "Full URL to the product detail page", "template": "{{detailUrl}}" },
       "source": { "type": "string", "description": "Source identifier", "template": "{{source}}" },
       "scrapedAt": { "type": "string", "description": "Timestamp when the item was scraped", "template": "{{scrapedAt}}" }
