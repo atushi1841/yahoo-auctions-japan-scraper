@@ -12,17 +12,17 @@
     "type": "object",
     "required": ["itemId", "title", "currentPrice", "detailUrl", "source", "scrapedAt"],
     "properties": {
-      "itemId": { "type": "string", "description": "Yahoo! Auction product ID" },
-      "title": { "type": "string", "description": "Product title" },
-      "currentPrice": { "type": "integer", "description": "Current price in JPY" },
-      "buyNowPrice": { "type": ["integer", "null"], "description": "Buy Now price in JPY or null" },
-      "bidCount": { "type": "integer", "description": "Number of bids" },
-      "timeLeft": { "type": "string", "description": "Remaining auction time" },
-      "postage": { "type": "string", "description": "Shipping/postage details" },
-      "imageUrl": { "type": ["string", "null"], "description": "Main product image URL" },
-      "detailUrl": { "type": "string", "description": "Full URL to the product detail page" },
-      "source": { "type": "string", "description": "Source identifier" },
-      "scrapedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the item was scraped" }
+      "itemId": { "type": "string", "description": "Yahoo! Auction product ID", "template": "{{itemId}}" },
+      "title": { "type": "string", "description": "Product title", "template": "{{title}}" },
+      "currentPrice": { "type": "integer", "description": "Current price in JPY", "template": "{{currentPrice}}" },
+      "buyNowPrice": { "type": ["integer", "null"], "description": "Buy Now price in JPY or null", "template": "{{buyNowPrice}}" },
+      "bidCount": { "type": "integer", "description": "Number of bids", "template": "{{bidCount}}" },
+      "timeLeft": { "type": "string", "description": "Remaining auction time", "template": "{{timeLeft}}" },
+      "postage": { "type": "string", "description": "Shipping/postage details", "template": "{{postage}}" },
+      "imageUrl": { "type": ["string", "null"], "description": "Main product image URL", "template": "{{imageUrl}}" },
+      "detailUrl": { "type": "string", "description": "Full URL to the product detail page", "template": "{{detailUrl}}" },
+      "source": { "type": "string", "description": "Source identifier", "template": "{{source}}" },
+      "scrapedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the item was scraped", "template": "{{scrapedAt}}" }
     }
   }
 }
