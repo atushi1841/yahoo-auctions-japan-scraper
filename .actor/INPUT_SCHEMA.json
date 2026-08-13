@@ -1,5 +1,7 @@
 {
+  "title": "Yahoo Auctions Japan Scraper Input",
   "type": "object",
+  "schemaVersion": 1,
   "properties": {
     "searchKeyword": {
       "type": "string",
