@@ -29,6 +29,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import csv
+from statistics import median
 
 
 # ---------- text normalisation ----------
@@ -128,6 +129,7 @@ class SurugaPrice:
     new: int | None
     url: str
     keyword: str = ""
+    source: str = "suruga"  # "suruga" (asking/retail, higher bias) | "mercari" (resale asking, closer to real comps)
 
 
 @dataclass
@@ -142,6 +144,10 @@ class ArbitrageHit:
     match_score: float
     source_title: str
     source_url: str
+    source_type: str = "suruga"     # which marketplace provided the resale reference
+    conservative_price: int = 0     # low-bound resale comp (best matching MERCARI, or suruga if none)
+    conservative_rate: float = 0.0  # margin rate using conservative_price
+    hits_count: int = 1             # how many resale references statistically backed this match
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -204,6 +210,7 @@ def load_mercari_items(items: list[dict], keyword: str = "") -> list[SurugaPrice
             new=None,
             url=f"https://jp.mercari.com/item/{it.get('id')}",
             keyword=keyword,
+            source="mercari",
         ))
     return prices
 
@@ -213,6 +220,12 @@ def _to_int(v) -> int | None:
         return None
     s = re.sub(r"[^\d]", "", str(v))
     return int(s) if s else None
+
+
+def _price_of(used: int | None, new: int | None) -> int | None:
+    """Resale reference price: prefer used price, else new."""
+    res = used if used else new
+    return int(res) if res else None
 
 
 # ---------- analysis ----------
@@ -240,29 +253,71 @@ def analyze(cands: list[YahooCandidate], suruga: list[SurugaPrice],
             pool = buckets.get(_norm(c.keyword), [])
             if not pool:
                 continue  # no resale prices for this keyword
-        best = None
-        best_score = 0.0
+        # Gather ALL matching references (same SKU, not accessory), scored.
+        # We keep every reference so we can prefer real-market (mercari) comps
+        # over higher-biased shop prices, and report a conservative low-bound.
+        scored = []
         for sp in pool:
             if not _same_sku(c.title, sp.title):
-                continue  # both have SKUs but they differ -> not the same model
+                continue
             if _is_accessory(c.title, sp.title):
-                continue  # accessory (lists compatible bodies) vs body -> skip
+                continue
             score = _match_score(c.title, sp.title)
-            if score > best_score:
-                best_score = score
-                best = sp
-        if best is None or best_score < min_score:
+            if score >= min_score:
+                scored.append((score, sp))
+        if not scored:
             continue
-        resale = best.used if best.used else best.new
+        scored.sort(key=lambda s: s[0], reverse=True)
+
+        # Distinct reference sets: mercari (real comps) vs shop (suruga/etc).
+        mercari_refs = [(s, sp) for s, sp in scored if sp.source == "mercari"]
+        shop_refs = [(s, sp) for s, sp in scored if sp.source != "mercari"]
+        mercari_prices: list[int] = []
+        for _, sp in mercari_refs:
+            p = _price_of(sp.used, sp.new)
+            if p:
+                mercari_prices.append(p)
+        mercari_prices.sort()
+        shop_prices: list[int] = []
+        for _, sp in shop_refs:
+            p = _price_of(sp.used, sp.new)
+            if p:
+                shop_prices.append(p)
+        shop_prices.sort()
+
+        # Primary resale reference: prefer the best real-market (mercari) comp;
+        # a low market ask is the most reliable "what actually sells for". Fall
+        # back to the best shop price (higher bias) only when no mercari matches.
+        source_type = "mercari"
+        if mercari_refs:
+            best_score, best_sp = mercari_refs[0]
+            # Use the median mercari ask as the primary comp (robust vs one outlier).
+            _median_price = int(median(mercari_prices)) if mercari_prices else None
+            resale = _median_price if _median_price else _price_of(best_sp.used, best_sp.new)
+            conservative_price = mercari_prices[0] if mercari_prices else (resale or 0)
+            hits_count = len(mercari_refs)
+            source_title, source_url = best_sp.title, best_sp.url
+        elif shop_refs:
+            best_score, best_sp = shop_refs[0]
+            resale = _price_of(best_sp.used, best_sp.new)
+            if not resale:
+                continue
+            source_type = "suruga"
+            conservative_price = shop_prices[0] if shop_prices else resale
+            hits_count = len(shop_refs)
+            source_title, source_url = best_sp.title, best_sp.url
+        else:
+            continue
         if not resale:
             continue
+
         margin_yen = resale - c.buy_now
         margin_rate = margin_yen / c.buy_now if c.buy_now else 0.0
+        cons_yen = conservative_price - c.buy_now
+        conservative_rate = cons_yen / c.buy_now if c.buy_now else 0.0
         # Guard against accessory/false-scope artefacts: >= 1000% margin on a
-        # ~zero sourcing cost almost always means a wrong-category match (e.g.
-        # a camera body cover ¥980 matched against a camera body ¥256600).
-        # Also require the token match to be meaningful when the gap is large.
-        if margin_yen > 0 and 0 < margin_rate < 10.0 and margin_rate >= min_rate:
+        # ~zero sourcing cost almost always means a wrong-category match.
+        if 0 < margin_rate < 10.0 and margin_rate >= min_rate:
             hits.append(ArbitrageHit(
                 keyword=c.keyword,
                 yahoo_title=c.title,
@@ -272,8 +327,12 @@ def analyze(cands: list[YahooCandidate], suruga: list[SurugaPrice],
                 margin_yen=margin_yen,
                 margin_rate=round(margin_rate, 3),
                 match_score=round(best_score, 3),
-                source_title=best.title,
-                source_url=best.url,
+                source_title=source_title,
+                source_url=source_url,
+                source_type=source_type,
+                conservative_price=conservative_price,
+                conservative_rate=round(conservative_rate, 3),
+                hits_count=hits_count,
             ))
     return hits
 
