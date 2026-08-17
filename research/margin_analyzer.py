@@ -69,6 +69,31 @@ def _match_score(t1: str, t2: str) -> float:
 _MODEL_RE = re.compile(r"ilce[-\s]?([a-z0-9]+)")
 
 
+# Accessories list their compatible bodies (e.g. "EOS R5 / R6 Mark II 用"), so a
+# token match against a body title is meaningless. Exclude these by marker.
+_ACCESSORY_MARKERS = [
+    "グリップ", "バッテリー", "カバー", "ストラップ", "ケース", "三脚",
+    "クリーナー", "レンズキャップ", "目当て", "アイカップ", "ストロボ",
+    "グリップ", "BG-", "充電", "アダプタ", "電池", "保護フィルム",
+    "ハンドストラップ", "ネックストラップ",
+]
+_BODY_MARKERS = ["ボディ", "本体"]
+
+
+def _is_accessory(t1: str, t2: str) -> bool:
+    """True when one title is an accessory and the other is a body.
+
+    Accessory titles list compatible cameras ("EOS R5 / R6 Mark II 用") while
+    the resale reference is a body, so token overlap is not proof of sameness."""
+    n1, n2 = _norm(t1), _norm(t2)
+    for m in _ACCESSORY_MARKERS:
+        if m in n1 or m in n2:
+            other = n2 if m in n1 else n1
+            if any(b in other for b in _BODY_MARKERS):
+                return True  # accessory vs body -> not comparable
+    return False
+
+
 def _model_code(s: str) -> str:
     """Extract a model/SKU code (e.g. ILCE-7CM2 -> 7cm2) if present."""
     m = _MODEL_RE.search(_norm(s))
@@ -200,6 +225,8 @@ def analyze(cands: list[YahooCandidate], suruga: list[SurugaPrice],
         for sp in pool:
             if not _same_sku(c.title, sp.title):
                 continue  # both have SKUs but they differ -> not the same model
+            if _is_accessory(c.title, sp.title):
+                continue  # accessory (lists compatible bodies) vs body -> skip
             score = _match_score(c.title, sp.title)
             if score > best_score:
                 best_score = score
@@ -211,7 +238,11 @@ def analyze(cands: list[YahooCandidate], suruga: list[SurugaPrice],
             continue
         margin_yen = resale - c.buy_now
         margin_rate = margin_yen / c.buy_now if c.buy_now else 0.0
-        if margin_yen > 0 and margin_rate >= min_rate:
+        # Guard against accessory/false-scope artefacts: >= 1000% margin on a
+        # ~zero sourcing cost almost always means a wrong-category match (e.g.
+        # a camera body cover ¥980 matched against a camera body ¥256600).
+        # Also require the token match to be meaningful when the gap is large.
+        if margin_yen > 0 and 0 < margin_rate < 10.0 and margin_rate >= min_rate:
             hits.append(ArbitrageHit(
                 keyword=c.keyword,
                 yahoo_title=c.title,
