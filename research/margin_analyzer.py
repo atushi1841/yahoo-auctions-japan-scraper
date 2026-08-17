@@ -69,8 +69,8 @@ def _match_score(t1: str, t2: str) -> float:
 _MODEL_RE = re.compile(r"ilce[-\s]?([a-z0-9]+)")
 
 
-# Accessories list their compatible bodies (e.g. "EOS R5 / R6 Mark II 用"), so a
-# token match against a body title is meaningless. Exclude these by marker.
+# Accessories list compatible bodies (e.g. "EOS R5 / R6 Mark II 用"), so a
+# token match against a body title is meaningless. Exclude by marker.
 _ACCESSORY_MARKERS = [
     "グリップ", "バッテリー", "カバー", "ストラップ", "ケース", "三脚",
     "クリーナー", "レンズキャップ", "目当て", "アイカップ", "ストロボ",
@@ -78,22 +78,16 @@ _ACCESSORY_MARKERS = [
     "ハンドストラップ", "ネックストラップ", "プレート", "プレーム", "ホルダー",
     "ブラケット", "モノポッド", "シューティンググリップ",
 ]
-_BODY_MARKERS = ["ボディ", "本体"]
 
 
 def _is_accessory(t1: str, t2: str) -> bool:
     """True when EITHER title is an accessory.
 
-    Accessory titles list compatible cameras ("EOS R5 / R6 Mark II 用") while
-    the resale reference is a body — and different accessories (a cover vs a
-    camera-plate) don't form a comparable trade. For resale research we only
-    care about core items, so any accessory involvement excludes the pair."""
+    Accessories list compatible cameras ("EOS R5 / R6 Mark II 用") and don't
+    trade against a body price, so any accessory involvement makes the pair
+    incomparable for resale research. Only core items (bodies, lenses) count."""
     n1, n2 = _norm(t1), _norm(t2)
-    if any(m in n1 or m in n2 for m in _ACCESSORY_MARKERS):
-        return True
-    # A body vs a body is fine; a body vs anything without the marker is also
-    # kept (could be a lens, which is a core resale item).
-    return False
+    return any(m in n1 or m in n2 for m in _ACCESSORY_MARKERS)
 
 
 def _model_code(s: str) -> str:

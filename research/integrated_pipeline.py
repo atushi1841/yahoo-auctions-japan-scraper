@@ -141,6 +141,8 @@ def main() -> None:
     p.add_argument("--mercari", action="store_true",
                    help="Also pull Mercari resale prices for entries with \"mercari\": true in the watchlist")
     p.add_argument("--mercari-max", type=int, default=10, help="Max Mercari items per keyword")
+    p.add_argument("--mercari-workers", type=int, default=4,
+                   help="Parallel Mercari sync-API calls (each ~60s)")
     args = p.parse_args()
 
     name = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -177,15 +179,20 @@ def main() -> None:
     print(f"[pipeline] Suruga-ya: {len(suruga_files)} files")
 
     # 2b. Mercari resale asking prices (Apify sync API, optional per-entry
-    #     "mercari": true — it costs ~$0.02/run so default is off, reuse Yahoo term)
+    #     "mercari": true — it costs ~$0.02/run so default is off). Fetched in
+    #     parallel because each sync call takes ~60s (Mercari is browser-heavy).
     mercari_entries = [e for e in entries if e.get("mercari", False)]
     mercari_items: list[tuple[str, list[dict]]] = []
     if mercari_entries and args.mercari:
-        for e in mercari_entries:
+        def _fetch_one(e):
             kw = e.get("mercariKeyword") or e["keyword"]
             items = _fetch_mercari(kw, max_items=args.mercari_max)
-            if items:
-                mercari_items.append((e["keyword"], items))
+            return (e["keyword"], items) if items else None
+        with ThreadPoolExecutor(max_workers=args.mercari_workers) as ex:
+            for res in ex.map(_fetch_one, mercari_entries):
+                if res is not None:
+                    mercari_items.append(res)
+        print(f"[pipeline] Mercari: {len(mercari_items)} keywords")
 
     # 3. Margin analysis (keyword-scoped)
     cands = load_yahoo_candidates(cands_csv, args.min_margin_rate)
