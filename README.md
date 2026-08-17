@@ -89,7 +89,7 @@ You can also receive a **JSON completion summary** at any URL by passing a `webh
 
 ## Changelog
 
-- **2026-08-17** — Added `searchKeywords` (multi-keyword) support for cross-category resale research; fixed `maxItems` cap across keywords. Store SEO optimized.
+- **2026-08-17** — Added `searchKeywords` (multi-keyword) support for cross-category resale research; fixed `maxItems` cap across keywords. Added webhook delivery. Optimized Store SEO. Added local resale-research tool & cross-market margin analyzer.
 - **2026-08-13** — Initial release.
 
 ## Technical Details
@@ -98,3 +98,26 @@ You can also receive a **JSON completion summary** at any URL by passing a `webh
 - BeautifulSoup (`lxml`) parsing.
 - Sequential keyword search on a shared client (gentle on rate limits).
 - Runs on Apify's `apify/actor-python:3.12` image.
+
+## Local Resale Research & Margin Analysis (self-use)
+
+Two companion scripts under `research/` build the resale pipeline locally (Japan IP):
+
+```bash
+# 1. Daily research over a watchlist -> flags high-demand (bid>=5) & sourcing
+#    candidates, writes timestamped JSON+CSV to data/research/
+python3 -m research.research_locally --config research/watchlist.json
+python3 -m research.research_locally --keywords "SONY α7 IV" --keywords "POKEMON カード"
+
+# 2. Cross-market margin: Yahoo sourcing vs Suruga-ya resale prices
+#    Tag each Suruga-ya JSON with its keyword so it only matches same-keyword
+#    candidates; require matching SKU (ILCE-xxx) to avoid cross-model hits.
+python3 -m research.margin_analyzer \
+  --yahoo data/research/items_YYYYMMDD.csv \
+  --suruga "SONY α7 IV=/path/to/suruga.json" \
+  --min-margin-rate 0.20
+```
+
+The analyzer is **advisory only** — it never places orders. Real resale is always
+manual (fees: Yahoo 8.8% + shipping, Mercari 10%; returns/fakes risk apply).
+
