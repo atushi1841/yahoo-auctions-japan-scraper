@@ -14,15 +14,33 @@ except Exception:
 from .yahoo_auctions import fetch_page, list_page, parse_page
 
 
+def _resolve_keywords(user_input: dict) -> list[str]:
+    """Resolve searched keywords: prefer searchKeywords (list), fall back to
+    the single searchKeyword for backward compatibility."""
+    keywords = user_input.get("searchKeywords") or []
+    if isinstance(keywords, str):
+        try:
+            keywords = json.loads(keywords)
+        except Exception:
+            keywords = [keywords]
+    if not keywords:
+        single = (user_input.get("searchKeyword") or "").strip()
+        if single:
+            keywords = [single]
+    return [str(k).strip() for k in keywords if k and str(k).strip()]
+
+
 async def _process(user_input: dict) -> None:
     use_actor = Actor is not None and Actor.is_at_home()
 
-    search_keyword = (user_input.get("searchKeyword") or "").strip()
-    if not search_keyword:
+    search_keywords = _resolve_keywords(user_input)
+    if not search_keywords:
         if use_actor:
-            await Actor.fail(status_message="Missing searchKeyword in actor input")
+            await Actor.fail(
+                status_message="Missing searchKeywords (or searchKeyword) in actor input"
+            )
         else:
-            print("Missing searchKeyword in actor input")
+            print("Missing searchKeywords (or searchKeyword) in actor input")
         return
 
     max_items = int(user_input.get("maxItems", 100))
@@ -55,46 +73,63 @@ async def _process(user_input: dict) -> None:
 
     collected_items = []
 
-    base_url = (
-        "https://auctions.yahoo.co.jp/search/search?"
-        f"p={quote(search_keyword)}"
-        "&auccat=&tab_ex=commerce"
-    )
-
     async with httpx.AsyncClient(**client_kwargs) as client:
-        for page in range(1, max_pages + 1):
-            url = list_page(base_url, page)
+        for search_keyword in search_keywords:
             if use_actor:
-                Actor.log.info(f"Fetching page {page}: {url}")
+                Actor.log.info(
+                    f"=== Searching '{search_keyword}' (keyword "
+                    f"{search_keywords.index(search_keyword) + 1}/"
+                    f"{len(search_keywords)}) ==="
+                )
             else:
-                print(f"Fetching page {page}: {url}")
+                print(
+                    f"=== Searching '{search_keyword}' (keyword "
+                    f"{search_keywords.index(search_keyword) + 1}/"
+                    f"{len(search_keywords)}) ==="
+                )
 
-            try:
-                html = await fetch_page(client, url)
-            except Exception as exc:
+            base_url = (
+                "https://auctions.yahoo.co.jp/search/search?"
+                f"p={quote(search_keyword)}"
+                "&auccat=&tab_ex=commerce"
+            )
+
+            for page in range(1, max_pages + 1):
+                url = list_page(base_url, page)
                 if use_actor:
-                    Actor.log.warning(f"Failed to fetch page {page}: {exc}")
+                    Actor.log.info(f"Fetching page {page}: {url}")
                 else:
-                    print(f"WARNING: Failed to fetch page {page}: {exc}")
-                break
+                    print(f"Fetching page {page}: {url}")
 
-            items = parse_page(html)
-            if use_actor:
-                Actor.log.info(f"Found {len(items)} items on page {page}")
-            else:
-                print(f"Found {len(items)} items on page {page}")
-
-            for item in items:
-                item["source"] = "yahoo_auctions"
-                item["scrapedAt"] = datetime.now(timezone.utc).isoformat()
-                collected_items.append(item)
-                if use_actor:
-                    await Actor.push_data(item)
-
-                if len(collected_items) >= max_items:
+                try:
+                    html = await fetch_page(client, url)
+                except Exception as exc:
+                    if use_actor:
+                        Actor.log.warning(f"Failed to fetch page {page}: {exc}")
+                    else:
+                        print(f"WARNING: Failed to fetch page {page}: {exc}")
                     break
 
-            if len(collected_items) >= max_items or not items:
+                items = parse_page(html)
+                if use_actor:
+                    Actor.log.info(f"Found {len(items)} items on page {page}")
+                else:
+                    print(f"Found {len(items)} items on page {page}")
+
+                for item in items:
+                    item["source"] = "yahoo_auctions"
+                    item["scrapedAt"] = datetime.now(timezone.utc).isoformat()
+                    collected_items.append(item)
+                    if use_actor:
+                        await Actor.push_data(item)
+
+                    if len(collected_items) >= max_items:
+                        break
+
+                if len(collected_items) >= max_items or not items:
+                    break
+
+            if len(collected_items) >= max_items:
                 break
 
     if use_actor:

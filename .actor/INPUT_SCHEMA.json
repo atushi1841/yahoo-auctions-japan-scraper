@@ -3,24 +3,31 @@
   "type": "object",
   "schemaVersion": 1,
   "properties": {
+    "searchKeywords": {
+      "type": "array",
+      "title": "Search keywords",
+      "description": "List of keywords to search on Yahoo! Auctions Japan. Each keyword is searched independently and results are combined into a single dataset. Use this for multi-category resale research.",
+      "editor": "stringList",
+      "prefill": []
+    },
     "searchKeyword": {
       "type": "string",
-      "title": "Search keyword",
-      "description": "Keyword to search on Yahoo! Auctions Japan",
+      "title": "Search keyword (single)",
+      "description": "Single keyword to search for. Kept for backward compatibility; ignored if searchKeywords is provided.",
       "editor": "textfield",
       "prefill": ""
     },
     "maxItems": {
       "type": "integer",
       "title": "Max items",
-      "description": "Maximum number of items to collect",
+      "description": "Maximum number of items to collect across all keywords.",
       "default": 100,
       "minimum": 1
     },
     "maxPages": {
       "type": "integer",
       "title": "Max pages",
-      "description": "Maximum number of result pages to fetch",
+      "description": "Maximum number of result pages to fetch per keyword.",
       "default": 5,
       "minimum": 1
     },
@@ -31,5 +38,5 @@
       "editor": "proxy"
     }
   },
-  "required": ["searchKeyword"]
+  "required": []
 }
