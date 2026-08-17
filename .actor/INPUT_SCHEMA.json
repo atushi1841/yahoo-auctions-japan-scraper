@@ -31,6 +31,13 @@
       "default": 5,
       "minimum": 1
     },
+    "webhookUrl": {
+      "type": "string",
+      "title": "Webhook URL",
+      "description": "Optional. POST a JSON summary to this URL when the run completes. Works with Slack, Discord, n8n or Zapier webhooks.",
+      "editor": "textfield",
+      "default": ""
+    },
     "proxyConfiguration": {
       "type": "object",
       "title": "Proxy configuration",

@@ -35,6 +35,7 @@ Scrape **Yahoo! Auctions Japan** (`auctions.yahoo.co.jp`) by keyword — or by *
 | `searchKeyword` | string | Single keyword (backward compatible; ignored if `searchKeywords` is set). | — |
 | `maxItems` | integer | Max total items across all keywords. | `100` |
 | `maxPages` | integer | Max result pages fetched **per keyword**. | `5` |
+| `webhookUrl` | string | Optional. POST a JSON summary to this URL on completion (Slack / Discord / n8n / Zapier). | `""` |
 | `proxyConfiguration` | object | Optional Apify proxy configuration. | — |
 
 > At least one keyword (`searchKeywords` or `searchKeyword`) is required.
@@ -64,6 +65,14 @@ Scrape **Yahoo! Auctions Japan** (`auctions.yahoo.co.jp`) by keyword — or by *
 ## Integrations
 
 This actor supports **Apify MCP Connectors** — send run results to Slack, Notion, Supabase, or GitHub without sharing credentials. Look for the **Connectors** tab on the run screen.
+
+You can also receive a **JSON completion summary** at any URL by passing a `webhookUrl` in the input — useful with Slack, Discord, n8n, or Zapier.
+
+### Example: Post Results to Slack (Webhook)
+
+1. Create a Slack webhook: `https://api.slack.com/apps` → Create New App → Incoming Webhooks.
+2. Copy the Webhook URL and pass it as `webhookUrl` when running the actor.
+3. On completion the actor POSTs `{"event":"actor_completed","itemCount":N,"keywords":[...],"datasetUrl":"..."}` to your Slack channel.
 
 ### Example: Scheduled Price Alerts to Slack
 

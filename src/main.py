@@ -46,6 +46,7 @@ async def _process(user_input: dict) -> None:
     max_items = int(user_input.get("maxItems", 100))
     max_pages = int(user_input.get("maxPages", 5))
     proxy_config = user_input.get("proxyConfiguration") or {}
+    webhook_url = (user_input.get("webhookUrl") or "").strip()
 
     headers = {
         "User-Agent": (
@@ -136,6 +137,39 @@ async def _process(user_input: dict) -> None:
         Actor.log.info(f"Collected {len(collected_items)} items")
     else:
         print(f"Collected {len(collected_items)} items")
+
+    # Webhook delivery (best-effort; never fail the run on webhook errors)
+    if webhook_url:
+        summary = {
+            "event": "actor_completed",
+            "actor": "yahoo-auctions-japan-scraper",
+            "keywords": search_keywords,
+            "itemCount": len(collected_items),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        dataset_url = ""
+        if use_actor:
+            try:
+                run_info = await Actor.get_run()
+                ds_id = run_info.get("defaultDatasetId") if run_info else None
+                if ds_id:
+                    dataset_url = f"https://api.apify.com/v2/datasets/{ds_id}/items"
+                    summary["datasetId"] = ds_id
+                    summary["datasetUrl"] = dataset_url
+            except Exception:
+                pass
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(webhook_url, json=summary)
+            if use_actor:
+                Actor.log.info(f"Webhook delivered: HTTP {resp.status_code}")
+            else:
+                print(f"Webhook delivered: HTTP {resp.status_code}")
+        except Exception as exc:
+            if use_actor:
+                Actor.log.warning(f"Webhook delivery failed: {exc}")
+            else:
+                print(f"WARNING: Webhook delivery failed: {exc}")
 
     if not use_actor:
         print(json.dumps(collected_items, ensure_ascii=False, indent=2))
