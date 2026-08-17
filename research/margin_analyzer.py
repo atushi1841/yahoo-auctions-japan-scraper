@@ -75,22 +75,24 @@ _ACCESSORY_MARKERS = [
     "グリップ", "バッテリー", "カバー", "ストラップ", "ケース", "三脚",
     "クリーナー", "レンズキャップ", "目当て", "アイカップ", "ストロボ",
     "グリップ", "BG-", "充電", "アダプタ", "電池", "保護フィルム",
-    "ハンドストラップ", "ネックストラップ",
+    "ハンドストラップ", "ネックストラップ", "プレート", "プレーム", "ホルダー",
+    "ブラケット", "モノポッド", "シューティンググリップ",
 ]
 _BODY_MARKERS = ["ボディ", "本体"]
 
 
 def _is_accessory(t1: str, t2: str) -> bool:
-    """True when one title is an accessory and the other is a body.
+    """True when EITHER title is an accessory.
 
     Accessory titles list compatible cameras ("EOS R5 / R6 Mark II 用") while
-    the resale reference is a body, so token overlap is not proof of sameness."""
+    the resale reference is a body — and different accessories (a cover vs a
+    camera-plate) don't form a comparable trade. For resale research we only
+    care about core items, so any accessory involvement excludes the pair."""
     n1, n2 = _norm(t1), _norm(t2)
-    for m in _ACCESSORY_MARKERS:
-        if m in n1 or m in n2:
-            other = n2 if m in n1 else n1
-            if any(b in other for b in _BODY_MARKERS):
-                return True  # accessory vs body -> not comparable
+    if any(m in n1 or m in n2 for m in _ACCESSORY_MARKERS):
+        return True
+    # A body vs a body is fine; a body vs anything without the marker is also
+    # kept (could be a lens, which is a core resale item).
     return False
 
 
@@ -185,6 +187,30 @@ def load_suruga_prices(path: Path, keyword: str = "") -> list[SurugaPrice]:
                 url=it.get("url", ""),
                 keyword=keyword,
             ))
+    return prices
+
+
+def load_mercari_items(items: list[dict], keyword: str = "") -> list[SurugaPrice]:
+    """Convert Mercari API items into resale-price references (used=asking price).
+
+    Mercari is a true resale marketplace, so the asking `price` maps to the
+    resale reference. Only on-sale genuine items (with a numeric id) count."""
+    prices: list[SurugaPrice] = []
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        if not it.get("id"):  # ad / non-genuine item
+            continue
+        price = _to_int(it.get("price"))
+        if not price:
+            continue
+        prices.append(SurugaPrice(
+            title=str(it.get("name", "")),
+            used=price,
+            new=None,
+            url=f"https://jp.mercari.com/item/{it.get('id')}",
+            keyword=keyword,
+        ))
     return prices
 
 

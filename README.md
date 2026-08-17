@@ -109,13 +109,18 @@ Two companion scripts under `research/` build the resale pipeline locally (Japan
 python3 -m research.research_locally --config research/watchlist.json
 python3 -m research.research_locally --keywords "SONY α7 IV" --keywords "POKEMON カード"
 
-# 2. Cross-market margin: Yahoo sourcing vs Suruga-ya resale prices
-#    Tag each Suruga-ya JSON with its keyword so it only matches same-keyword
+# 2. Cross-market margin: Yahoo sourcing vs Suruga-ya / Mercari resale prices
+#    Add --mercari to also pull Mercari asking prices (Apify sync API, no local
+#    Chrome needed). Tag each resale JSON/keyword so it only matches same-keyword
 #    candidates; require matching SKU (ILCE-xxx) to avoid cross-model hits.
-python3 -m research.margin_analyzer \
+APIFY_TOKEN=... python3 -m research.margin_analyzer \
   --yahoo data/research/items_YYYYMMDD.csv \
   --suruga "SONY α7 IV=/path/to/suruga.json" \
   --min-margin-rate 0.20
+
+# 3. One-command pipeline: Yahoo sourcing + Suruga-ya + Mercari -> daily report
+APIFY_TOKEN=... python3 -m research.integrated_pipeline \
+  --config research/watchlist.json --out data/research/daily --mercari
 ```
 
 The analyzer is **advisory only** — it never places orders. Real resale is always

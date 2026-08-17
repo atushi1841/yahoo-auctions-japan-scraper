@@ -22,6 +22,7 @@ import json
 import os
 import subprocess
 import sys
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
@@ -98,6 +99,37 @@ def _safe(s: str) -> str:
     return "".join(c if c.isalnum() or c in "-_" else "_" for c in s).strip("_")[:40] or "kw"
 
 
+# Apify Mercari actor (published, DC-IP direct works; proxy must be OFF).
+MERCARI_ACTOR_ID = "whSePszWpMtfeLYBp"
+APIFY_TOKEN = os.environ.get("APIFY_TOKEN", "")
+
+
+def _fetch_mercari(keyword: str, max_items: int = 12) -> list[dict]:
+    """Fetch resale asking prices from Mercari via the Apify actor's sync API.
+    Returns raw API items. Uses DC IP (no proxy) — auto proxy fails on Mercari."""
+    if not APIFY_TOKEN:
+        print("[mercari] APIFY_TOKEN not set -> skipped", flush=True)
+        return []
+    body = json.dumps({
+        "searchKeyword": keyword,
+        "maxItems": int(max_items),
+        "maxPages": 1,
+        "proxyConfiguration": {"useApifyProxy": False},
+    }).encode()
+    url = (f"https://api.apify.com/v2/acts/{MERCARI_ACTOR_ID}/"
+           f"run-sync-get-dataset-items?token={APIFY_TOKEN}&timeout=180")
+    req = urllib.request.Request(url, data=body,
+                                 headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=200) as r:
+            items = json.loads(r.read().decode())
+        print(f"[mercari] '{keyword}' -> {len(items)} items", flush=True)
+        return items
+    except Exception as exc:
+        print(f"[mercari] '{keyword}' failed: {exc}", flush=True)
+        return []
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Integrated Yahoo+Suruga resale pipeline")
     p.add_argument("--config", type=Path, required=True)
@@ -106,6 +138,9 @@ def main() -> None:
     p.add_argument("--max-pages", type=int, default=2)
     p.add_argument("--min-margin-rate", type=float, default=0.20)
     p.add_argument("--workers", type=int, default=2, help="Paralleel Suruga-ya scrapers")
+    p.add_argument("--mercari", action="store_true",
+                   help="Also pull Mercari resale prices for entries with \"mercari\": true in the watchlist")
+    p.add_argument("--mercari-max", type=int, default=10, help="Max Mercari items per keyword")
     args = p.parse_args()
 
     name = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -128,8 +163,8 @@ def main() -> None:
     print(f"[pipeline] Yahoo: {len(yahoo_items)} items -> {cands_csv.name}")
 
     # 2. Suruga-ya resale per entry (parallel but modest)
-    from research.margin_analyzer import load_suruga_prices, load_yahoo_candidates, analyze
-    from research.margin_analyzer import YahooCandidate
+    from research.margin_analyzer import (load_suruga_prices, load_yahoo_candidates,
+                                          analyze, load_mercari_items)
 
     suruga_files: list[tuple[str, Path]] = []
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
@@ -141,15 +176,29 @@ def main() -> None:
                 suruga_files.append((e["keyword"], out))
     print(f"[pipeline] Suruga-ya: {len(suruga_files)} files")
 
+    # 2b. Mercari resale asking prices (Apify sync API, optional per-entry
+    #     "mercari": true — it costs ~$0.02/run so default is off, reuse Yahoo term)
+    mercari_entries = [e for e in entries if e.get("mercari", False)]
+    mercari_items: list[tuple[str, list[dict]]] = []
+    if mercari_entries and args.mercari:
+        for e in mercari_entries:
+            kw = e.get("mercariKeyword") or e["keyword"]
+            items = _fetch_mercari(kw, max_items=args.mercari_max)
+            if items:
+                mercari_items.append((e["keyword"], items))
+
     # 3. Margin analysis (keyword-scoped)
     cands = load_yahoo_candidates(cands_csv, args.min_margin_rate)
     all_suruga = []
     for kw, path in suruga_files:
         all_suruga.extend(load_suruga_prices(path, keyword=kw))
+    for kw, items in mercari_items:
+        all_suruga.extend(load_mercari_items(items, keyword=kw))
     hits = analyze(cands, all_suruga, min_score=0.35, min_rate=args.min_margin_rate)
     hits.sort(key=lambda h: h.margin_rate, reverse=True)
 
     print(f"\n=== Margin opportunities ({len(hits)} >= {args.min_margin_rate*100:.0f}%) ===")
+    print(f"  (suruga={len(suruga_files)}, mercari={len(mercari_items)})")
     for h in hits[:15]:
         print(f"  [+{h.margin_rate*100:.0f}% +¥{h.margin_yen}] {h.yahoo_title[:38]} "
               f"| ¥{h.sourcing_cost}→¥{h.resale_price}")
@@ -158,7 +207,7 @@ def main() -> None:
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "watchlist": entries,
         "counts": {"yahoo": len(yahoo_items), "surugaFiles": len(suruga_files),
-                   "hits": len(hits)},
+                   "mercari": len(mercari_items), "hits": len(hits)},
         "hits": [h.__dict__ for h in hits],
     }
     out_file = run_dir / "report.json"
