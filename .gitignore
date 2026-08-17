@@ -5,3 +5,4 @@ INPUT.json
 .venv/
 storage/
 .aider*
+data/research/
