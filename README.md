@@ -1,5 +1,7 @@
 # Yahoo Auctions Japan Scraper — Used Item Price Research & Resale Sourcing
 
+> **🔌 Live API here:** [**Apify Actor: Japan Yahoo Auctions Prices — Listings & Market Data**](https://apify.com/fruitful_quintessence/yahoo-auctions-japan-scraper) — run from any language, no setup. Pay-per-result. Also available via [Apify MCP](https://mcp.apify.com) for AI agents.
+
 Scrape **Yahoo! Auctions Japan** (`auctions.yahoo.co.jp`) by keyword — or by **multiple keywords at once** — and get structured price / bid / availability data for JDM used items. Built for reseller sourcing, price arbitrage, and market monitoring.
 
 ## Output Sample
